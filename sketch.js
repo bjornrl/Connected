@@ -13,11 +13,16 @@ let yPos;
 let lerpSlider;
 let particlesSlider;
 let attractorsSlider;
+let strokeOpacitySlider;
 
 // Labels
 let lerpLabel;
 let particlesLabel;
 let attractorsLabel;
+let strokeOpacityLabel;
+
+// Stroke opacity
+let strokeOpacity = 5;
 
 // Animation
 let isAnimating = false;
@@ -49,9 +54,11 @@ let colorPalette = [
 
 let selectedStrokeColor = [0, 0, 0]; // Default black
 let selectedBgColor = [255, 255, 255]; // Default white
+let isBgTransparent = false; // Track if background is transparent
 let strokeColorButtons = [];
 let bgColorButtons = [];
 let colorBarY = 610; // Y position for color bars
+let downloadButton;
 
 function setup() {
   createCanvas(600, 800);
@@ -61,32 +68,41 @@ function setup() {
 
   // Create sliders at the bottom
   lerpSlider = createSlider(0, 1, lerpValue, 0.01);
-  lerpSlider.position(20, height - 80);
+  lerpSlider.position(20, height - 110);
   lerpSlider.style("width", "200px");
 
   particlesSlider = createSlider(100, 20000, particlesQty, 100);
-  particlesSlider.position(20, height - 50);
+  particlesSlider.position(20, height - 80);
   particlesSlider.style("width", "200px");
 
   attractorsSlider = createSlider(1, 50, attractorsQty, 1);
-  attractorsSlider.position(20, height - 20);
+  attractorsSlider.position(20, height - 50);
   attractorsSlider.style("width", "200px");
+
+  strokeOpacitySlider = createSlider(0, 100, strokeOpacity, 5);
+  strokeOpacitySlider.position(20, height - 20);
+  strokeOpacitySlider.style("width", "200px");
 
   // Create labels at the bottom
   lerpLabel = createP("Lerp Value: " + lerpValue.toFixed(2));
-  lerpLabel.position(240, height - 95);
+  lerpLabel.position(240, height - 125);
   lerpLabel.style("font-size", "12px");
   lerpLabel.style("color", "#000");
 
   particlesLabel = createP("Particles: " + particlesQty);
-  particlesLabel.position(240, height - 65);
+  particlesLabel.position(240, height - 95);
   particlesLabel.style("font-size", "12px");
   particlesLabel.style("color", "#000");
 
   attractorsLabel = createP("Attractors: " + attractorsQty);
-  attractorsLabel.position(240, height - 35);
+  attractorsLabel.position(240, height - 65);
   attractorsLabel.style("font-size", "12px");
   attractorsLabel.style("color", "#000");
+
+  strokeOpacityLabel = createP("Stroke Opacity: " + strokeOpacity);
+  strokeOpacityLabel.position(240, height - 35);
+  strokeOpacityLabel.style("font-size", "12px");
+  strokeOpacityLabel.style("color", "#000");
 
   // Create animate button
   animateButton = createButton("Animate Attractors");
@@ -101,6 +117,13 @@ function setup() {
   showAttractorsButton.mousePressed(toggleShowAttractors);
   showAttractorsButton.style("padding", "10px 15px");
   showAttractorsButton.style("font-size", "12px");
+
+  // Create download PNG button
+  downloadButton = createButton("Download PNG");
+  downloadButton.position(450, height - 20);
+  downloadButton.mousePressed(downloadPNG);
+  downloadButton.style("padding", "10px 15px");
+  downloadButton.style("font-size", "12px");
 
   // Generate initial composition
   generateComposition();
@@ -144,7 +167,7 @@ function createColorPickers() {
     strokeColorButtons.push(btn);
   }
 
-  // Create background color buttons
+  // Create background color buttons (including transparent option)
   for (let i = 0; i < colorPalette.length; i++) {
     let btn = createButton("");
     btn.position(startX + i * (swatchSize + spacing), bgBarY);
@@ -158,6 +181,23 @@ function createColorPickers() {
     bgColorButtons.push(btn);
   }
 
+  // Add transparent background button
+  let transparentBtn = createButton("");
+  transparentBtn.position(
+    startX + colorPalette.length * (swatchSize + spacing),
+    bgBarY
+  );
+  transparentBtn.size(swatchSize, swatchSize);
+  transparentBtn.style(
+    "background",
+    "repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px"
+  );
+  transparentBtn.style("border", "2px solid #333");
+  transparentBtn.style("padding", "0");
+  transparentBtn.style("cursor", "pointer");
+  transparentBtn.mousePressed(() => selectTransparentBg());
+  bgColorButtons.push(transparentBtn);
+
   // Set initial selections (black for stroke, white for background)
   updateColorButtonStyles();
 }
@@ -169,6 +209,12 @@ function selectStrokeColor(index) {
 
 function selectBgColor(index) {
   selectedBgColor = colorPalette[index].color;
+  isBgTransparent = false;
+  updateColorButtonStyles();
+}
+
+function selectTransparentBg() {
+  isBgTransparent = true;
   updateColorButtonStyles();
 }
 
@@ -186,12 +232,27 @@ function updateColorButtonStyles() {
 
   // Update background color buttons
   for (let i = 0; i < bgColorButtons.length; i++) {
-    if (arraysEqual(selectedBgColor, colorPalette[i].color)) {
-      bgColorButtons[i].style("border", "3px solid #000");
-      bgColorButtons[i].style("box-shadow", "0 0 5px rgba(0,0,0,0.5)");
+    if (i < colorPalette.length) {
+      // Regular color buttons
+      if (
+        !isBgTransparent &&
+        arraysEqual(selectedBgColor, colorPalette[i].color)
+      ) {
+        bgColorButtons[i].style("border", "3px solid #000");
+        bgColorButtons[i].style("box-shadow", "0 0 5px rgba(0,0,0,0.5)");
+      } else {
+        bgColorButtons[i].style("border", "2px solid #333");
+        bgColorButtons[i].style("box-shadow", "none");
+      }
     } else {
-      bgColorButtons[i].style("border", "2px solid #333");
-      bgColorButtons[i].style("box-shadow", "none");
+      // Transparent button (last button)
+      if (isBgTransparent) {
+        bgColorButtons[i].style("border", "3px solid #000");
+        bgColorButtons[i].style("box-shadow", "0 0 5px rgba(0,0,0,0.5)");
+      } else {
+        bgColorButtons[i].style("border", "2px solid #333");
+        bgColorButtons[i].style("box-shadow", "none");
+      }
     }
   }
 }
@@ -271,30 +332,36 @@ function draw() {
     regeneratePaths();
   }
 
+  // Update stroke opacity from slider
+  strokeOpacity = strokeOpacitySlider.value();
+
   // Update labels
   lerpLabel.html("Lerp Value: " + lerpSlider.value().toFixed(2));
   particlesLabel.html("Particles: " + particlesSlider.value());
   attractorsLabel.html("Attractors: " + attractorsSlider.value());
+  strokeOpacityLabel.html("Stroke Opacity: " + strokeOpacity);
 
   // Background for entire canvas (white for controls area)
   background(255, 255, 255);
 
-  // Draw background color only for composition area
+  // Draw background color only for composition area (if not transparent)
   let compositionHeight = 600;
-  fill(selectedBgColor[0], selectedBgColor[1], selectedBgColor[2]);
-  noStroke();
-  rect(0, 0, width, compositionHeight);
+  if (!isBgTransparent) {
+    fill(selectedBgColor[0], selectedBgColor[1], selectedBgColor[2]);
+    noStroke();
+    rect(0, 0, width, compositionHeight);
+  }
 
   // Draw composition in the top area (600px height)
   push();
   translate(0, 0);
   noFill();
-  // Use selected stroke color
+  // Use selected stroke color with opacity from slider
   stroke(
     selectedStrokeColor[0],
     selectedStrokeColor[1],
     selectedStrokeColor[2],
-    5
+    strokeOpacity
   );
   for (let particle of particles) {
     beginShape();
@@ -354,6 +421,52 @@ function toggleShowAttractors() {
   } else {
     showAttractorsButton.html("Show Attractors");
   }
+}
+
+function downloadPNG() {
+  // Create a temporary graphics buffer for just the composition area
+  let compositionHeight = 600;
+  let pg = createGraphics(width, compositionHeight);
+
+  // Draw background color (or transparent)
+  if (!isBgTransparent) {
+    pg.background(selectedBgColor[0], selectedBgColor[1], selectedBgColor[2]);
+  } else {
+    pg.clear(); // Transparent background
+  }
+
+  // Draw particle paths
+  pg.noFill();
+  pg.stroke(
+    selectedStrokeColor[0],
+    selectedStrokeColor[1],
+    selectedStrokeColor[2],
+    strokeOpacity
+  );
+  for (let particle of particles) {
+    pg.beginShape();
+    for (let position of particle.path) {
+      pg.vertex(position.x, position.y);
+    }
+    pg.endShape();
+  }
+
+  // Draw attractors if enabled
+  if (showAttractors) {
+    pg.rectMode(RADIUS);
+    pg.fill(
+      selectedStrokeColor[0],
+      selectedStrokeColor[1],
+      selectedStrokeColor[2]
+    );
+    pg.noStroke();
+    for (let attractor of attractors) {
+      pg.ellipse(attractor.x, attractor.y, 10);
+    }
+  }
+
+  // Save the graphics buffer as PNG
+  save(pg, "composition.png");
 }
 
 function animateAttractors() {
